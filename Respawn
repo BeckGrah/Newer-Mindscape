@@ -1,0 +1,54 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+
+public class Death_Detection : MonoBehaviour
+{
+    [SerializeField] private Rigidbody2D rb;
+    // This should be set in the unity inspector to the initial respawn location of the player
+    [SerializeField] private Transform respawn;
+
+    // makes a gameObject called current_respawn_trigger, gets asigned later in the OnTriggerEnter code
+    private GameObject current_respawn_trigger;
+    // sets last_respawn_trigger_num for later
+    private float last_respawn_trigger_num = 0;
+
+
+    //teleports player to 'respawn' position. Other parts of this function move said loction around to other respawn points, but essentially it's just the one being moved around.
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.gameObject.tag == "spike")
+        {
+            rb.transform.position = respawn.position;
+        }
+    }
+
+    // Changes the location of the respawn point when the player touches a respawn trigger. Won't move respawn point if the trigger number is less than one the player has already touched. (if the player skips a trigger then hits it later it does nothing)
+    // triggers must be named 'respawn trigger #' with # being the order they go in, ie '1' would be ther first trigger, '2' the second
+    // respawn locations must be named 'respawn #' with # being the order they go in. 'respawn 0' would be the first one, and is the one active when the player enters the level, and there for not associated with a trigger. 'respawn 1' would be the respawn location 'respawn trigger 1' the player is sent to upon dying after touching said trigger.
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.tag == "respawn trigger")
+        {
+            //sets a gameObject equal to the game object the player collided with, which in this case was a respawn trigger
+            current_respawn_trigger = collision.gameObject;
+            // deactivates the collided with respawn trigger so it can't be actiated again
+            current_respawn_trigger.SetActive(false);
+
+            // stupid code to change a the name of the respawn trigger from data type 'char' to data type 'string' before immediately chaging the string to a float. Only necesary b/c idk how to go from 'char' straight to 'float'
+            // essentially it takes the last character in the name of the trigger (which MUST be a number) and converts it to a float
+            string current_respawn_trigger_string = current_respawn_trigger.name[current_respawn_trigger.name.Length - 1].ToString();
+            float current_respawn_trigger_num = float.Parse(current_respawn_trigger_string);
+
+            // the actual respawning part of this code. If the new trigger num is greater than the last activated trigger num, it runs the code
+            // once the if statement is met it finds a game object with the name "respawn #" with # being the last digit of the trigger name. Essentially if the trigger was 'respawn trigger 3' then it looks for a gameObject named 'respawn 3' and moves 'respawn 0' to that location. Respawn 0 is the gameObject used in the spike collision detection script to teleport the player.
+            // this is why respawn triggers and respawns must follow the naming convention. The code should allow for infinite triggers / respawns, with no coding (or any messing with scripting) done on the level design part, as idk if anyone on the team actually knows how to code
+            if (last_respawn_trigger_num < current_respawn_trigger_num)
+                respawn.transform.position = GameObject.Find("respawn " + collision.gameObject.name[collision.gameObject.name.Length - 1]).transform.position;
+
+            // Once the respawn location has been moved, this saves the current respawn trigger num as the last respawn trigger num, to be used again to verify the next respawn trigger num is greater than this one.
+            last_respawn_trigger_num = current_respawn_trigger_num;
+        }
+    }
+}
