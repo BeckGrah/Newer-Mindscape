@@ -1,0 +1,36 @@
+using System.Collections;
+using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class SwitchScene : MonoBehaviour
+
+{
+    [SerializeField] public string Scene_Name;
+    private bool time_passed = false;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        StartCoroutine(wait());
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+    }
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (time_passed == true)
+        {
+            SceneManager.LoadScene(sceneName: Scene_Name);
+        }
+    }
+    IEnumerator wait()
+    {
+        yield return new WaitForSeconds(.5f);
+        time_passed = true;
+    }
+}
