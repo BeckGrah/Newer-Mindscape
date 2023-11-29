@@ -9,6 +9,12 @@ public class SwitchScene : MonoBehaviour
 {
     [SerializeField] public string Scene_Name;
     private bool time_passed = false;
+    [SerializeField] private GameObject cam_transition;
+    [SerializeField] private GameObject cam;
+    [SerializeField] private float speed;
+    private AudioListener audio_listener;
+    private GameObject vcam;
+    
 
     // Start is called before the first frame update
     void Start()
@@ -25,12 +31,24 @@ public class SwitchScene : MonoBehaviour
     {
         if (time_passed == true)
         {
-            SceneManager.LoadScene(sceneName: Scene_Name);
+            SceneManager.LoadScene(sceneName: Scene_Name, LoadSceneMode.Additive);
+            vcam = GameObject.FindWithTag("vcam");
+            Destroy(vcam.GetComponent("Cinemachine Confiner (Script)"));
+            cam = GameObject.FindWithTag("MainCamera");
+            cam_transition = GameObject.FindWithTag("cam transition");
+            audio_listener = cam.GetComponent<AudioListener>();
+            audio_listener.enabled =! audio_listener.enabled;
+            move_cam();
         }
     }
     IEnumerator wait()
     {
         yield return new WaitForSeconds(.5f);
         time_passed = true;
+    }
+
+    void move_cam()
+    {
+        cam.transform.position = Vector2.MoveTowards(cam.transform.position, cam_transition.transform.position, speed * Time.deltaTime);
     }
 }
