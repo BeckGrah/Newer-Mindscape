@@ -1,5 +1,7 @@
+using Cinemachine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -7,48 +9,102 @@ using UnityEngine.SceneManagement;
 public class SwitchScene : MonoBehaviour
 
 {
+    public Follow_Player follow_player_script;
     [SerializeField] public string Scene_Name;
-    private bool time_passed = false;
-    [SerializeField] private GameObject cam_transition;
+    [SerializeField] private GameObject Player;
     [SerializeField] private GameObject cam;
+    // sets speed of the scene swith camera transition
     [SerializeField] private float speed;
+    // used to see which way to move the player based on what direction the door leads
+    [SerializeField] string door_direction;
+    
+    // sets all the game objects / bools/ rigidbodies / audio listeners the script needs for later
     private AudioListener audio_listener;
+    private GameObject cam_bounds;
+    private GameObject cam_transition;
     private GameObject vcam;
+    private bool move_cam = false;
+    private bool update_stopper;
+    private Rigidbody2D player_rb;
+
+    // creates floats / Vector2 used to store player velocity
+    private Vector2 player_velocity;
+    private float player_velocity_y;
+    private float player_velocity_x;
+    private float player_width;
+    
     
 
     // Start is called before the first frame update
     void Start()
     {
-        StartCoroutine(wait());
+        // all of this is just accessing game objects in scene to be used later
+        cam_bounds = GameObject.FindWithTag("Camera Bounds");
+        vcam = GameObject.FindWithTag("vcam");
+        cam = GameObject.FindWithTag("MainCamera");
+        cam_transition = GameObject.FindWithTag("Cam Transition");
+        audio_listener = cam.GetComponent<AudioListener>();
+        player_rb = Player.GetComponent<Rigidbody2D>();
+        player_width = Player.GetComponent<BoxCollider2D>().size.x;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-
-    }
     void OnTriggerEnter2D(Collider2D collision)
     {
-        if (time_passed == true)
-        {
-            SceneManager.LoadScene(sceneName: Scene_Name, LoadSceneMode.Additive);
-            vcam = GameObject.FindWithTag("vcam");
-            Destroy(vcam.GetComponent("Cinemachine Confiner (Script)"));
-            cam = GameObject.FindWithTag("MainCamera");
-            cam_transition = GameObject.FindWithTag("cam transition");
-            audio_listener = cam.GetComponent<AudioListener>();
-            audio_listener.enabled =! audio_listener.enabled;
-            move_cam();
-        }
-    }
-    IEnumerator wait()
-    {
-        yield return new WaitForSeconds(.5f);
-        time_passed = true;
+        // loads the new scene
+        SceneManager.LoadScene(sceneName: Scene_Name, LoadSceneMode.Additive);
+        // disables camera follow in the Follow_Player script attached to the vcam
+        follow_player_script.follow_disable();
+        Destroy(vcam);
+        // destroys the camera bounds for the transition
+        Destroy(cam_bounds);
+        // disables the audio listener...for some reason. this might not be necessary I'm not sure yet
+        audio_listener.enabled = !audio_listener.enabled;
+        // sets move_cam == true so the update can start transitioning the player + camera
+        move_cam = true;
+        // stores player velocities right before player movement is froze
+        player_velocity = player_rb.velocity;
+        player_velocity_y = player_rb.velocity.y;
+        player_velocity_x = player_rb.velocity.x;
+        // freezes player rigidbody
+        player_rb.constraints = RigidbodyConstraints2D.FreezeAll;
+        // set player gravity to 0
+        player_rb.gravityScale = 0f;
+        // unfreezes player rb (note that all velocity was lost during the freeze, and gravity is 0 so player rigidbody isn't moving, but now has the ability to do so that wasn't the case when frozen)
+        player_rb.constraints = RigidbodyConstraints2D.None;
     }
 
-    void move_cam()
+    void Update()
     {
-        cam.transform.position = Vector2.MoveTowards(cam.transform.position, cam_transition.transform.position, speed * Time.deltaTime);
+        if (move_cam == true && cam.transform.position != cam_transition.transform.position)
+        {
+            // moves camera towards an object with the "Cam Transition" tag
+            cam.transform.position = Vector3.MoveTowards(cam.transform.position, cam_transition.transform.position, speed * Time.deltaTime);
+            // moves the player based on door direction
+            if (door_direction == "up")
+            {
+                player_rb.velocity = new Vector2((player_velocity_x * speed * Time.deltaTime) / (player_width * 2.4f) / speed, (player_width * 2.4f));
+            }
+            else if (door_direction == "down")
+            {
+                player_rb.velocity = new Vector2((player_velocity_x * speed * Time.deltaTime) / (player_width * 2.4f), -(player_width * 2.4f));
+            }
+            else if (door_direction == "left")
+            {
+                player_rb.velocity = new Vector2(-(player_width * 2.4f), (player_velocity_y * speed * Time.deltaTime) / (player_width * 2.4f));
+            }
+            else if (door_direction == "right")
+            {
+                player_rb.velocity = new Vector2((player_width * 2.4f), (player_velocity_y * speed * Time.deltaTime) / (player_width * 2.4f));
+            }
+            print(Time.deltaTime);
+        }
+        else if (cam.transform.position == cam_transition.transform.position && update_stopper == false)
+        {
+            // sets gravity = 2.5f (standard) and sets the current player velocity to what it was before the freeze, giving the player the same velocity they had entering the door
+            player_rb.gravityScale = 2.5f;
+            player_rb.velocity = player_velocity;
+            // stops this statement from being run over and over
+            update_stopper = true;
+        }
     }
 }
