@@ -1,0 +1,117 @@
+using Cinemachine;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class SwitchScene : MonoBehaviour
+
+{
+    public Follow_Player follow_player_script;
+    public ResetCamBounds reset_cam_bounds;
+    [SerializeField] public string Scene_Name;
+    [SerializeField] private GameObject Player;
+    [SerializeField] private GameObject cam;
+    // sets speed of the scene swith camera transition
+    [SerializeField] private float speed;
+    // used to see which way to move the player based on what direction the door leads
+    [SerializeField] string door_direction;
+    private Scene current_scene;
+    private CinemachineConfiner2D confiner;
+    private PolygonCollider2D vcam_polygon;
+    
+    // sets all the game objects / bools/ rigidbodies / audio listeners the script needs for later
+    private AudioListener audio_listener;
+    private GameObject cam_bounds;
+    private GameObject cam_transition;
+    private GameObject vcam;
+    private bool move_cam = false;
+    private bool update_stopper;
+    private Rigidbody2D player_rb;
+
+    // creates floats / Vector2 used to store player velocity
+    private Vector2 player_velocity;
+    private float player_velocity_y;
+    private float player_velocity_x;
+    private float player_width;
+    
+    
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        // all of this is just accessing game objects in scene to be used later
+        //cam_bounds = GameObject.FindWithTag("Camera Bounds");
+        //vcam_polygon = cam_bounds.GetComponent<PolygonCollider2D>();
+        vcam = GameObject.FindWithTag("vcam");
+        confiner = vcam.GetComponent<CinemachineConfiner2D>();
+        cam = GameObject.FindWithTag("MainCamera");
+        cam_transition = GameObject.FindWithTag("Cam Transition");
+        audio_listener = cam.GetComponent<AudioListener>();
+        player_rb = Player.GetComponent<Rigidbody2D>();
+        player_width = Player.GetComponent<BoxCollider2D>().size.x;
+        current_scene = SceneManager.GetActiveScene();
+    }
+
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        // loads the new scene
+        SceneManager.LoadScene(sceneName: Scene_Name, LoadSceneMode.Additive);
+        // stores player velocities right before player movement is froze
+        player_velocity = player_rb.velocity;
+        player_velocity_y = player_rb.velocity.y;
+        player_velocity_x = player_rb.velocity.x;
+        // freezes player rigidbody
+        player_rb.constraints = RigidbodyConstraints2D.FreezeAll;
+        // disables camera follow in the Follow_Player script attached to the vcam
+        follow_player_script.follow_disable();
+        //reset_cam_bounds.Change_vcam_bounds();
+        vcam.SetActive(false);
+        // destroys the camera bounds for the transition
+        confiner.InvalidateCache();
+        //Destroy(cam_bounds);
+        //cam_bounds = GameObject.FindWithTag("Camera Bounds");
+        //vcam_polygon = cam_bounds.GetComponent<PolygonCollider2D>();
+        //confiner.m_BoundingShape2D = vcam_polygon;
+        // sets move_cam == true so the update can start transitioning the player + camera
+        move_cam = true;
+        // set player gravity to 0
+        player_rb.gravityScale = 0f;
+        // unfreezes player rb (note that all velocity was lost during the freeze, and gravity is 0 so player rigidbody isn't moving, but now has the ability to do so that wasn't the case when frozen)
+        player_rb.constraints = RigidbodyConstraints2D.None;
+    }
+
+    void Update()
+    {
+        if (move_cam == true && cam.transform.position != cam_transition.transform.position)
+        {
+
+            // moves the player based on door direction
+            if (door_direction == "up")
+            {
+                player_rb.velocity = new Vector2((player_velocity_x * speed * Time.deltaTime) / (player_width * 2.4f) / speed, (player_width * 2.4f));
+            }
+            else if (door_direction == "down")
+            {
+                player_rb.velocity = new Vector2((player_velocity_x * speed * Time.deltaTime) / (player_width * 2.4f), -(player_width * 2.4f));
+            }
+            else if (door_direction == "left")
+            {
+                player_rb.velocity = new Vector2(-(player_width * 4.8f), (player_velocity_y * speed * Time.deltaTime) / (player_width * 2.4f));
+            }
+            else if (door_direction == "right")
+            {
+                player_rb.velocity = new Vector2((player_width * 2.4f), (player_velocity_y * speed * Time.deltaTime) / (player_width * 2.4f));
+            }
+        }
+        else if (cam.transform.position == cam_transition.transform.position)
+        {
+            // sets gravity = 2.5f (standard) and sets the current player velocity to what it was before the freeze, giving the player the same velocity they had entering the door
+            player_rb.gravityScale = 2.5f;
+            player_rb.velocity = player_velocity;
+            SceneManager.UnloadSceneAsync(current_scene);  
+        }
+    }
+}
